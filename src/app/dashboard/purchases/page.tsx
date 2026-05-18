@@ -37,7 +37,7 @@ export default function PurchasesPage() {
 
       if (!error && data && data.length > 0) {
         // Fix N+1 Query: Collect all unique seller IDs first
-        const sellerIds = Array.from(new Set(data.map(room => room.seller_id)));
+        const sellerIds = Array.from(new Set((data as ChatRoom[]).map((room) => room.seller_id)));
 
         // Fetch all needed profiles in ONE single query
         const { data: profiles } = await supabase
@@ -46,10 +46,10 @@ export default function PurchasesPage() {
           .in('id', sellerIds);
 
         // Create a map for O(1) lookup
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const profileMap = new Map<string, any>(profiles?.map((p: any) => [p.id, p]) || []);
 
         // Resolve seller names instantly
-        const formatted = data.map((room) => {
+        const formatted = (data as ChatRoom[]).map((room) => {
           const prof = profileMap.get(room.seller_id);
           return {
             ...room,

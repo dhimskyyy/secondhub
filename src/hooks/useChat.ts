@@ -38,7 +38,7 @@ export function useChat() {
     if (!error && data && data.length > 0) {
       // Fix N+1 Query: Collect all unique target IDs first
       const targetIds = Array.from(new Set(
-        data.map(room => room.buyer_id === user.id ? room.seller_id : room.buyer_id)
+        (data as ChatRoom[]).map((room) => room.buyer_id === user.id ? room.seller_id : room.buyer_id)
       ));
 
       // Fetch all needed profiles in ONE single query
@@ -48,9 +48,9 @@ export function useChat() {
         .in('id', targetIds);
 
       // Create a map for O(1) lookup
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileMap = new Map<string, any>(profiles?.map((p: any) => [p.id, p]) || []);
 
-      const formatted = data.map((room) => {
+      const formatted = (data as ChatRoom[]).map((room) => {
         const targetId = room.buyer_id === user.id ? room.seller_id : room.buyer_id;
         const prof = profileMap.get(targetId);
         return {
