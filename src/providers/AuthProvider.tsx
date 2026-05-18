@@ -71,27 +71,15 @@ export default function AuthProvider({
   }, [supabase]);
 
   useEffect(() => {
-    // If no initial user was provided by server, fetch client-side
-    if (!initialUser) {
-      const initAuth = async () => {
-        const { data: { user: fetchedUser } } = await supabase.auth.getUser();
-        if (fetchedUser) {
-          setUser(fetchedUser);
-          const prof = await fetchProfile(fetchedUser.id);
-          setProfile(prof);
-        }
-        setIsLoading(false);
-      };
-      initAuth();
-    } else {
-      setIsLoading(false);
-    }
-
     // Listen for auth state changes (login, logout, token refresh)
+    // This immediately fires an INITIAL_SESSION event reading from local storage (extremely fast)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
         const currentUser = session?.user ?? null;
+        
+        // Immediately set user and unlock loading state to prevent skeleton hang
         setUser(currentUser);
+        setIsLoading(false);
 
         if (currentUser) {
           const prof = await fetchProfile(currentUser.id);

@@ -35,23 +35,31 @@ export default function PurchasesPage() {
         .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        // Resolve seller names
-        const formatted = await Promise.all(
-          (data as ChatRoom[]).map(async (room) => {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('full_name, avatar_url')
-              .eq('id', room.seller_id)
-              .single();
-            return {
-              ...room,
-              opponent_name: prof?.full_name || 'Penjual SecondHub',
-              opponent_avatar: prof?.avatar_url || null,
-            };
-          })
-        );
+      if (!error && data && data.length > 0) {
+        // Fix N+1 Query: Collect all unique seller IDs first
+        const sellerIds = Array.from(new Set(data.map(room => room.seller_id)));
+
+        // Fetch all needed profiles in ONE single query
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', sellerIds);
+
+        // Create a map for O(1) lookup
+        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+        // Resolve seller names instantly
+        const formatted = data.map((room) => {
+          const prof = profileMap.get(room.seller_id);
+          return {
+            ...room,
+            opponent_name: prof?.full_name || 'Penjual SecondHub',
+            opponent_avatar: prof?.avatar_url || null,
+          };
+        });
         setRooms(formatted);
+      } else if (data?.length === 0) {
+        setRooms([]);
       }
       setLoading(false);
     };

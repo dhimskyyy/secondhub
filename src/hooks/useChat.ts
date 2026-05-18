@@ -35,28 +35,41 @@ export function useChat() {
       .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      const formatted = await Promise.all(
-        (data as ChatRoom[]).map(async (room) => {
-          const targetId = room.buyer_id === user.id ? room.seller_id : room.buyer_id;
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', targetId)
-            .single();
-          return {
-            ...room,
-            opponent_name: prof?.full_name || 'Pengguna SecondHub',
-            opponent_avatar: prof?.avatar_url || null,
-          };
-        })
-      );
+    if (!error && data && data.length > 0) {
+      // Fix N+1 Query: Collect all unique target IDs first
+      const targetIds = Array.from(new Set(
+        data.map(room => room.buyer_id === user.id ? room.seller_id : room.buyer_id)
+      ));
+
+      // Fetch all needed profiles in ONE single query
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', targetIds);
+
+      // Create a map for O(1) lookup
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      const formatted = data.map((room) => {
+        const targetId = room.buyer_id === user.id ? room.seller_id : room.buyer_id;
+        const prof = profileMap.get(targetId);
+        return {
+          ...room,
+          opponent_name: prof?.full_name || 'Pengguna SecondHub',
+          opponent_avatar: prof?.avatar_url || null,
+        };
+      });
       setRooms(formatted);
+    } else if (data?.length === 0) {
+      setRooms([]);
     }
   }, [user, supabase]);
 
   // Fetch messages for the active room
   const fetchMessages = useCallback(async (roomId: string) => {
+    // Clear old messages instantly so UI doesn't look frozen
+    setMessages([]); 
+    
     const { data } = await supabase
       .from('chat_messages')
       .select('*')
@@ -153,9 +166,11 @@ export function useChat() {
   // Open chat to specific room (called by ChatButton / Purchases page)
   const openRoom = useCallback(async (roomId: string) => {
     setIsOpen(true);
-    await fetchRooms();
+    
+    // Fetch rooms in the background for the inbox sidebar (don't await)
+    fetchRooms();
 
-    // Find the room and set it active
+    // Fetch the specific room data
     const { data: roomData } = await supabase
       .from('chat_rooms')
       .select(`
@@ -167,6 +182,8 @@ export function useChat() {
 
     if (roomData && user) {
       const targetId = roomData.buyer_id === user.id ? roomData.seller_id : roomData.buyer_id;
+      
+      // Fetch profile data
       const { data: prof } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
