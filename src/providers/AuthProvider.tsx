@@ -81,15 +81,18 @@ export default function AuthProvider({
     try {
       // 1. Call explicit server route to destroy server session + cookies
       await fetch('/auth/logout', { method: 'POST' });
-      // 2. Call client-side signOut as a fallback
-      await supabase.auth.signOut();
+      // 2. Call client-side signOut asynchronously so it doesn't block if localStorage is deadlocked
+      supabase.auth.signOut().catch(() => {});
     } catch {
       // Ignore signout errors
     }
     setUser(null);
     setProfile(null);
-    // Hard navigation ensures server-side re-render with empty cookies
-    window.location.href = '/';
+    
+    // Give the POST request a tiny window to finish before reloading
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 100);
   }, [supabase]);
 
   useEffect(() => {
