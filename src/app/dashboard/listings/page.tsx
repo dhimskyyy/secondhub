@@ -23,7 +23,9 @@ export default function ListingsPage() {
   const fetchProducts = useCallback(async (userId: string) => {
     try {
       setError('');
-      const { data, error: fetchError } = await supabase
+      
+      // 10s Timeout wrapper for Supabase fetch to prevent infinite hanging
+      const fetchPromise = supabase
         .from('products')
         .select(`
           id, title, price, condition, status, city, created_at,
@@ -31,6 +33,12 @@ export default function ListingsPage() {
         `)
         .eq('seller_id', userId)
         .order('created_at', { ascending: false });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Koneksi ke server terlalu lama (timeout). Silakan coba lagi.')), 10000)
+      );
+
+      const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (fetchError) throw fetchError;
       setProducts((data || []) as ProductCardData[]);
@@ -45,9 +53,13 @@ export default function ListingsPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) {
+      setLoading(false);
+      window.location.href = '/login';
+      return;
+    }
     fetchProducts(user.id);
-  }, [authLoading, user, router, fetchProducts]);
+  }, [authLoading, user, fetchProducts]);
 
   const handleMarkAsSold = async (productId: string) => {
     if (!window.confirm('Tandai barang ini sebagai sudah terjual?') || !user) return;

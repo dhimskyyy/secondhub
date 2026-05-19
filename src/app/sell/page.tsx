@@ -45,7 +45,8 @@ export default function SellPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.push('/login');
+      setPageReady(true);
+      window.location.href = '/login';
       return;
     }
 

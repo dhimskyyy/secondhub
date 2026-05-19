@@ -24,7 +24,7 @@ export default function PurchasesPage() {
   const fetchPurchases = useCallback(async (userId: string) => {
     try {
       setError('');
-      const { data, error: fetchError } = await supabase
+      const fetchPromise = supabase
         .from('chat_rooms')
         .select(`
           id, product_id, buyer_id, seller_id, created_at,
@@ -32,6 +32,12 @@ export default function PurchasesPage() {
         `)
         .eq('buyer_id', userId)
         .order('created_at', { ascending: false });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Koneksi ke server terlalu lama (timeout). Silakan coba lagi.')), 10000)
+      );
+
+      const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (fetchError) throw fetchError;
 
@@ -72,9 +78,13 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) {
+      setLoading(false);
+      window.location.href = '/login';
+      return;
+    }
     fetchPurchases(user.id);
-  }, [authLoading, user, router, fetchPurchases]);
+  }, [authLoading, user, fetchPurchases]);
 
   const openChatRoom = (roomId: string) => {
     window.dispatchEvent(
