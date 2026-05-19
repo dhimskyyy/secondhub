@@ -79,6 +79,9 @@ export default function AuthProvider({
   // Sign out handler — forces hard navigation to clear all cached state
   const signOut = useCallback(async () => {
     try {
+      // 1. Call explicit server route to destroy server session + cookies
+      await fetch('/auth/logout', { method: 'POST' });
+      // 2. Call client-side signOut as a fallback
       await supabase.auth.signOut();
     } catch {
       // Ignore signout errors

@@ -73,7 +73,7 @@ export default function Navbar() {
 
               {/* Dashboard link */}
               <Link
-                href="/dashboard"
+                href="/dashboard/listings"
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 px-3 py-2 rounded-xl transition-colors"
               >
                 <LayoutDashboard size={14} />
