@@ -105,7 +105,7 @@ export default function AuthProvider({
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, session: Session | null) => {
+      (_event: AuthChangeEvent, session: Session | null) => {
         const currentUser = session?.user ?? null;
 
         // On INITIAL_SESSION, prefer server-prefetched data if available
@@ -128,9 +128,11 @@ export default function AuthProvider({
         clearTimeout(timeout);
 
         if (currentUser) {
-          // Fetch profile in background — don't block UI
-          const prof = await fetchProfile(currentUser.id);
-          setProfile(prof);
+          // Fetch profile in background using .then() to prevent Supabase Auth deadlock!
+          // NEVER await a supabase.from() query inside onAuthStateChange.
+          fetchProfile(currentUser.id).then((prof) => {
+            setProfile(prof);
+          });
         } else {
           setProfile(null);
         }

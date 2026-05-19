@@ -52,15 +52,24 @@ export default function SellPage() {
 
     const loadData = async () => {
       try {
-        const [profileResponse, catResponse] = await Promise.all([
+        console.log('[SellPage] Starting to load profile and categories...');
+        const fetchPromise = Promise.all([
           supabase.from('profiles').select('city').eq('id', user.id).single(),
           supabase.from('categories').select('*').order('name')
         ]);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Koneksi ke server terlalu lama (timeout).')), 10000)
+        );
+
+        const [profileResponse, catResponse] = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        console.log('[SellPage] Successfully loaded data.');
 
         if (profileResponse.data?.city) setCity(profileResponse.data.city);
         if (catResponse.data) setCategories(catResponse.data as Category[]);
       } catch (err) {
         console.error('[SellPage] loadData error:', err);
+        alert('Gagal memuat kategori barang. ' + (err instanceof Error ? err.message : ''));
       } finally {
         setPageReady(true);
       }
