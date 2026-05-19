@@ -1,7 +1,7 @@
 // src/providers/AuthProvider.tsx
 'use client';
 
-import { createContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { createBrowserSupabaseClient } from '@/lib/supabase-browser';
 import type { Profile } from '@/types/profile';
@@ -31,9 +31,13 @@ interface AuthProviderProps {
 }
 
 /**
- * Global AuthProvider that wraps the entire app.
- * Receives server-fetched initial data to prevent flickering,
- * then listens for real-time auth state changes.
+ * Global AuthProvider — single source of truth for auth state.
+ *
+ * Architecture:
+ * 1. initialUser/initialProfile from server SSR → immediate render (no flash)
+ * 2. onAuthStateChange → listens for login/logout/token refresh
+ * 3. Profile fetched in background after auth change
+ * 4. Timeout fallback → if onAuthStateChange never fires, unlock after 2s
  */
 export default function AuthProvider({
   children,
@@ -45,15 +49,24 @@ export default function AuthProvider({
   const [isLoading, setIsLoading] = useState(!initialUser);
 
   const supabase = createBrowserSupabaseClient();
+  const hasInitialized = useRef(false);
 
-  // Fetch profile from client-side (for updates)
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    return data as Profile | null;
+  // Fetch profile from client-side
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) {
+        console.warn('[AuthProvider] Profile fetch error:', error.message);
+        return null;
+      }
+      return data as Profile;
+    } catch {
+      return null;
+    }
   }, [supabase]);
 
   // Refresh profile (callable from child components after profile edit)
@@ -63,25 +76,53 @@ export default function AuthProvider({
     if (freshProfile) setProfile(freshProfile);
   }, [user, fetchProfile]);
 
-  // Sign out handler
+  // Sign out handler — forces hard navigation to clear all cached state
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore signout errors
+    }
     setUser(null);
     setProfile(null);
+    // Hard navigation ensures server-side re-render with empty cookies
+    window.location.href = '/';
   }, [supabase]);
 
   useEffect(() => {
-    // Listen for auth state changes (login, logout, token refresh)
-    // This immediately fires an INITIAL_SESSION event reading from local storage (extremely fast)
+    // Safety timeout: if onAuthStateChange never fires, unlock loading after 2 seconds
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+      }
+    }, 2000);
+
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
         const currentUser = session?.user ?? null;
-        
-        // Immediately set user and unlock loading state to prevent skeleton hang
+
+        // On INITIAL_SESSION, prefer server-prefetched data if available
+        if (_event === 'INITIAL_SESSION' && !hasInitialized.current) {
+          hasInitialized.current = true;
+
+          if (initialUser && initialProfile) {
+            // Server already pre-fetched everything — just unlock
+            setUser(initialUser);
+            setProfile(initialProfile);
+            setIsLoading(false);
+            clearTimeout(timeout);
+            return;
+          }
+        }
+
+        // For all other events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.)
         setUser(currentUser);
         setIsLoading(false);
+        clearTimeout(timeout);
 
         if (currentUser) {
+          // Fetch profile in background — don't block UI
           const prof = await fetchProfile(currentUser.id);
           setProfile(prof);
         } else {
@@ -91,9 +132,11 @@ export default function AuthProvider({
     );
 
     return () => {
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [supabase, initialUser, fetchProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile }}>

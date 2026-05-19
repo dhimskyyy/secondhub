@@ -11,7 +11,7 @@ interface ChatInboxProps {
 }
 
 /**
- * Left sidebar of the chat widget — lists all chat rooms.
+ * Left sidebar of the chat widget — lists all chat rooms with unread indicators.
  */
 export default function ChatInbox({
   rooms,
@@ -41,6 +41,7 @@ export default function ChatInbox({
         ) : (
           rooms.map((room) => {
             const isActive = activeRoomId === room.id;
+            const hasUnread = (room.unread_count || 0) > 0;
             return (
               <div
                 key={room.id}
@@ -48,23 +49,40 @@ export default function ChatInbox({
                 className={`p-3 cursor-pointer transition-all text-left flex items-center gap-2.5 border-b border-slate-50 ${
                   isActive
                     ? 'bg-blue-50/70 border-l-[3px] border-l-blue-600'
-                    : 'hover:bg-slate-100/70 border-l-[3px] border-l-transparent'
+                    : hasUnread
+                      ? 'bg-blue-50/30 hover:bg-blue-50/50 border-l-[3px] border-l-blue-400'
+                      : 'hover:bg-slate-100/70 border-l-[3px] border-l-transparent'
                 }`}
               >
-                <Avatar
-                  src={room.opponent_avatar}
-                  alt={room.opponent_name}
-                  size="sm"
-                  fallbackInitial={room.opponent_name}
-                />
+                <div className="relative">
+                  <Avatar
+                    src={room.opponent_avatar}
+                    alt={room.opponent_name}
+                    size="sm"
+                    fallbackInitial={room.opponent_name}
+                  />
+                  {/* Unread dot indicator on avatar */}
+                  {hasUnread && !isActive && (
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-600 rounded-full border-2 border-white" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs truncate ${isActive ? 'text-slate-900 font-semibold' : 'text-slate-700'}`}>
+                  <p className={`text-xs truncate ${
+                    isActive ? 'text-slate-900 font-semibold' :
+                    hasUnread ? 'text-slate-900 font-bold' : 'text-slate-700'
+                  }`}>
                     {room.opponent_name}
                   </p>
                   <p className="text-[10px] text-slate-400 truncate mt-0.5">
                     {room.products?.title || 'Produk'}
                   </p>
                 </div>
+                {/* Unread count badge */}
+                {hasUnread && !isActive && (
+                  <span className="bg-blue-600 text-white text-[9px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 flex-shrink-0">
+                    {room.unread_count > 99 ? '99+' : room.unread_count}
+                  </span>
+                )}
               </div>
             );
           })

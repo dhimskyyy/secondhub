@@ -50,16 +50,19 @@ export default function SellPage() {
     }
 
     const loadData = async () => {
-      // Fetch profile city and categories in parallel for speed
-      const [profileResponse, catResponse] = await Promise.all([
-        supabase.from('profiles').select('city').eq('id', user.id).single(),
-        supabase.from('categories').select('*').order('name')
-      ]);
+      try {
+        const [profileResponse, catResponse] = await Promise.all([
+          supabase.from('profiles').select('city').eq('id', user.id).single(),
+          supabase.from('categories').select('*').order('name')
+        ]);
 
-      if (profileResponse.data?.city) setCity(profileResponse.data.city);
-      if (catResponse.data) setCategories(catResponse.data as Category[]);
-
-      setPageReady(true);
+        if (profileResponse.data?.city) setCity(profileResponse.data.city);
+        if (catResponse.data) setCategories(catResponse.data as Category[]);
+      } catch (err) {
+        console.error('[SellPage] loadData error:', err);
+      } finally {
+        setPageReady(true);
+      }
     };
 
     loadData();
@@ -146,8 +149,7 @@ export default function SellPage() {
       if (imagesTableError) throw imagesTableError;
 
       alert('Iklan barang berhasil dipasang!');
-      router.push('/');
-      router.refresh();
+      window.location.href = '/';
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Gagal memasang iklan';
       alert(msg);

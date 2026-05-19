@@ -1,7 +1,7 @@
 // src/app/dashboard/listings/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Trash2, CheckCircle, Package, ImageOff } from 'lucide-react';
@@ -18,42 +18,52 @@ export default function ListingsPage() {
   const supabase = useSupabase();
   const [products, setProducts] = useState<ProductCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const fetchProducts = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        id, title, price, condition, status, city, created_at,
-        product_images (image_url, is_primary)
-      `)
-      .eq('seller_id', userId)
-      .order('created_at', { ascending: false });
+  const fetchProducts = useCallback(async (userId: string) => {
+    try {
+      setError('');
+      const { data, error: fetchError } = await supabase
+        .from('products')
+        .select(`
+          id, title, price, condition, status, city, created_at,
+          product_images (image_url, is_primary)
+        `)
+        .eq('seller_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (!error && data) setProducts(data as ProductCardData[]);
-    setLoading(false);
-  };
+      if (fetchError) throw fetchError;
+      setProducts((data || []) as ProductCardData[]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat data';
+      setError(msg);
+      console.error('[ListingsPage] Fetch error:', msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push('/login'); return; }
     fetchProducts(user.id);
-  }, [authLoading, user, router, supabase]);
+  }, [authLoading, user, router, fetchProducts]);
 
   const handleMarkAsSold = async (productId: string) => {
     if (!window.confirm('Tandai barang ini sebagai sudah terjual?') || !user) return;
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('products')
       .update({ status: 'Sold', updated_at: new Date().toISOString() })
       .eq('id', productId);
-    if (!error) fetchProducts(user.id);
-    else alert('Gagal: ' + error.message);
+    if (!updateError) fetchProducts(user.id);
+    else alert('Gagal: ' + updateError.message);
   };
 
   const handleDelete = async (productId: string) => {
     if (!window.confirm('Hapus iklan ini secara permanen?') || !user) return;
-    const { error } = await supabase.from('products').delete().eq('id', productId);
-    if (!error) setProducts((prev) => prev.filter((p) => p.id !== productId));
-    else alert('Gagal: ' + error.message);
+    const { error: deleteError } = await supabase.from('products').delete().eq('id', productId);
+    if (!deleteError) setProducts((prev) => prev.filter((p) => p.id !== productId));
+    else alert('Gagal: ' + deleteError.message);
   };
 
   if (authLoading || loading) {
@@ -78,7 +88,20 @@ export default function ListingsPage() {
         </div>
       </div>
 
-      {products.length === 0 ? (
+      {/* Error State */}
+      {error && (
+        <div className="text-center py-8 bg-red-50 rounded-2xl border border-red-100 mb-4">
+          <p className="text-sm text-red-600 mb-2">{error}</p>
+          <button
+            onClick={() => user && fetchProducts(user.id)}
+            className="text-sm text-blue-600 font-semibold hover:underline"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+
+      {!error && products.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
           <Package size={40} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm mb-2">Belum ada iklan barang bekas.</p>

@@ -10,13 +10,10 @@ import ChatRoomView from './ChatRoom';
 import ChatWelcome from './ChatWelcome';
 
 /**
- * 3-Layer Floating Chat Widget (ala Shopee Web)
- *
- * Layer 1 (Collapsed): Floating "Chat" button with notification badge
- * Layer 2 (Inbox): Sidebar with room list + welcome panel
- * Layer 3 (Active Room): Full messaging interface with product header
- *
- * Lives in the root layout — never unmounts during navigation.
+ * 3-Layer Floating Chat Widget
+ * Layer 1 (Collapsed): Floating "Chat" button with UNREAD badge
+ * Layer 2 (Inbox): Sidebar with room list + unread indicators
+ * Layer 3 (Active Room): Full messaging with read receipts
  */
 export default function FloatingChat() {
   const { user } = useAuth();
@@ -27,12 +24,14 @@ export default function FloatingChat() {
     isOpen,
     inputText,
     uploading,
+    unreadTotal,
     setIsOpen,
     setActiveRoom,
     setInputText,
     fetchRooms,
     sendMessage,
     sendImage,
+    markMessagesAsRead,
   } = useChat();
 
   // Fetch rooms when widget opens
@@ -45,11 +44,14 @@ export default function FloatingChat() {
   // Don't render anything for guests
   if (!user) return null;
 
+  const handleSelectRoom = (room: any) => {
+    setActiveRoom(room);
+    markMessagesAsRead(room.id);
+  };
+
   return (
     <div className="fixed bottom-5 right-5 z-50 font-sans text-slate-800">
-      {/* =============================================
-          LAYER 1: COLLAPSED FLOATING BUTTON
-          ============================================= */}
+      {/* LAYER 1: COLLAPSED FLOATING BUTTON */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -57,25 +59,24 @@ export default function FloatingChat() {
         >
           <MessageCircle size={18} className="group-hover:rotate-12 transition-transform" />
           <span>Chat</span>
-          {rooms.length > 0 && (
-            <span className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center ml-1 shadow-sm">
-              {rooms.length}
+          {/* UNREAD BADGE — Only shows count of unread messages, not total rooms */}
+          {unreadTotal > 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center ml-1 shadow-sm px-1 animate-pulse">
+              {unreadTotal > 99 ? '99+' : unreadTotal}
             </span>
           )}
         </button>
       )}
 
-      {/* =============================================
-          LAYER 2 + 3: EXPANDED CHAT BOX
-          ============================================= */}
+      {/* LAYER 2 + 3: EXPANDED CHAT BOX */}
       {isOpen && (
-        <div className="bg-white w-[340px] sm:w-[680px] h-[460px] rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/80 flex overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="bg-white w-[340px] sm:w-[680px] h-[460px] rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/80 flex overflow-hidden">
           {/* Left: Inbox Sidebar */}
           <div className="hidden sm:flex">
             <ChatInbox
               rooms={rooms}
               activeRoomId={activeRoom?.id || null}
-              onSelectRoom={setActiveRoom}
+              onSelectRoom={handleSelectRoom}
               onMinimize={() => {
                 setIsOpen(false);
                 setActiveRoom(null);
@@ -98,16 +99,14 @@ export default function FloatingChat() {
             />
           ) : (
             <>
-              {/* Mobile: Show inbox in the right panel */}
               <div className="sm:hidden flex-1">
                 <ChatInbox
                   rooms={rooms}
                   activeRoomId={null}
-                  onSelectRoom={setActiveRoom}
+                  onSelectRoom={handleSelectRoom}
                   onMinimize={() => setIsOpen(false)}
                 />
               </div>
-              {/* Desktop: Show welcome */}
               <div className="hidden sm:flex flex-1">
                 <ChatWelcome />
               </div>

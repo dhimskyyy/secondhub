@@ -8,6 +8,7 @@ export interface ChatMessage {
   sender_id: string;
   message: string;
   image_url: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -30,4 +31,8 @@ export interface ChatRoom {
   opponent_name: string;
   /** Resolved opponent avatar URL */
   opponent_avatar: string | null;
+  /** Unread message count for current user */
+  unread_count: number;
+  /** Last message preview */
+  last_message: string | null;
 }

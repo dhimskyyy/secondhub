@@ -3,7 +3,7 @@
 
 import { useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, Send, ImagePlus, ImageOff } from 'lucide-react';
+import { ArrowLeft, Send, ImagePlus, ImageOff, Check, CheckCheck } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import StatusBadge from '@/components/ui/StatusBadge';
 import type { ChatRoom as ChatRoomType, ChatMessage } from '@/types/chat';
@@ -22,7 +22,7 @@ interface ChatRoomProps {
 }
 
 /**
- * Active chat room view with product header, message bubbles, and input area.
+ * Active chat room view with product header, message bubbles, read receipts, and input area.
  */
 export default function ChatRoomView({
   room,
@@ -117,6 +117,11 @@ export default function ChatRoomView({
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40 space-y-2.5">
+        {messages.length === 0 && (
+          <div className="text-center py-8 text-xs text-slate-400">
+            Belum ada pesan. Mulai obrolan dengan mengirim pesan pertama!
+          </div>
+        )}
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUserId;
           return (
@@ -141,16 +146,25 @@ export default function ChatRoomView({
                 ) : (
                   <p className="whitespace-pre-wrap text-left leading-relaxed">{msg.message}</p>
                 )}
-                <p
-                  className={`text-[9px] text-right mt-1 ${
-                    isMe ? 'text-blue-200' : 'text-slate-400'
-                  }`}
-                >
-                  {new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
+                {/* Timestamp + Read Receipt */}
+                <div className={`flex items-center justify-end gap-1 mt-1 ${
+                  isMe ? 'text-blue-200' : 'text-slate-400'
+                }`}>
+                  <span className="text-[9px]">
+                    {new Date(msg.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  {/* Read receipt — only show on sender's messages */}
+                  {isMe && (
+                    msg.is_read ? (
+                      <CheckCheck size={12} className="text-blue-200" />
+                    ) : (
+                      <Check size={12} className="text-blue-300/60" />
+                    )
+                  )}
+                </div>
               </div>
             </div>
           );

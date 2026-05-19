@@ -1,7 +1,7 @@
 // src/app/dashboard/purchases/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ShoppingCart, MessageCircle, ImageOff } from 'lucide-react';
@@ -12,7 +12,6 @@ import type { ChatRoom } from '@/types/chat';
 
 /**
  * "Pembelian Saya" page — shows chat rooms where the user is the BUYER.
- * This represents inquiries/negotiations the user initiated on other sellers' products.
  */
 export default function PurchasesPage() {
   const router = useRouter();
@@ -20,52 +19,62 @@ export default function PurchasesPage() {
   const supabase = useSupabase();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) { router.push('/login'); return; }
-
-    const fetchPurchases = async () => {
-      const { data, error } = await supabase
+  const fetchPurchases = useCallback(async (userId: string) => {
+    try {
+      setError('');
+      const { data, error: fetchError } = await supabase
         .from('chat_rooms')
         .select(`
           id, product_id, buyer_id, seller_id, created_at,
           products (id, title, price, status, product_images(image_url))
         `)
-        .eq('buyer_id', user.id)
+        .eq('buyer_id', userId)
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        // Fix N+1 Query: Collect all unique seller IDs first
-        const sellerIds = Array.from(new Set((data as ChatRoom[]).map((room) => room.seller_id)));
+      if (fetchError) throw fetchError;
 
-        // Fetch all needed profiles in ONE single query
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .in('id', sellerIds);
-
-        // Create a map for O(1) lookup
-        const profileMap = new Map<string, any>(profiles?.map((p: any) => [p.id, p]) || []);
-
-        // Resolve seller names instantly
-        const formatted = (data as ChatRoom[]).map((room) => {
-          const prof = profileMap.get(room.seller_id);
-          return {
-            ...room,
-            opponent_name: prof?.full_name || 'Penjual SecondHub',
-            opponent_avatar: prof?.avatar_url || null,
-          };
-        });
-        setRooms(formatted);
-      } else if (data?.length === 0) {
+      if (!data || data.length === 0) {
         setRooms([]);
+        return;
       }
-      setLoading(false);
-    };
 
-    fetchPurchases();
-  }, [authLoading, user, router, supabase]);
+      // Batch fetch profiles
+      const sellerIds = Array.from(new Set((data as ChatRoom[]).map((room) => room.seller_id)));
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', sellerIds);
+
+      const profileMap = new Map<string, any>(profiles?.map((p: any) => [p.id, p]) || []);
+
+      const formatted = (data as ChatRoom[]).map((room) => {
+        const prof = profileMap.get(room.seller_id);
+        return {
+          ...room,
+          opponent_name: prof?.full_name || 'Penjual SecondHub',
+          opponent_avatar: prof?.avatar_url || null,
+          unread_count: 0,
+          last_message: null,
+        };
+      });
+      setRooms(formatted);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat data';
+      setError(msg);
+      console.error('[PurchasesPage] Fetch error:', msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { router.push('/login'); return; }
+    fetchPurchases(user.id);
+  }, [authLoading, user, router, fetchPurchases]);
 
   const openChatRoom = (roomId: string) => {
     window.dispatchEvent(
@@ -89,16 +98,29 @@ export default function PurchasesPage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">Pembelian Saya</h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Riwayat tawaran & obrolan untuk barang yang Anda minati
+          Riwayat tawaran &amp; obrolan untuk barang yang Anda minati
         </p>
       </div>
 
-      {rooms.length === 0 ? (
+      {/* Error State */}
+      {error && (
+        <div className="text-center py-8 bg-red-50 rounded-2xl border border-red-100 mb-4">
+          <p className="text-sm text-red-600 mb-2">{error}</p>
+          <button
+            onClick={() => user && fetchPurchases(user.id)}
+            className="text-sm text-blue-600 font-semibold hover:underline"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+
+      {!error && rooms.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
           <ShoppingCart size={40} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm mb-2">Belum ada riwayat pembelian.</p>
           <p className="text-xs">
-            Mulai belanja dengan menekan tombol <strong>"Chat Penjual"</strong> di halaman produk.
+            Mulai belanja dengan menekan tombol <strong>&quot;Chat Penjual&quot;</strong> di halaman produk.
           </p>
         </div>
       ) : (

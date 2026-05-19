@@ -2,7 +2,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Avatar from '@/components/ui/Avatar';
 import Skeleton from '@/components/ui/Skeleton';
@@ -20,16 +19,13 @@ import {
  * Uses the AuthProvider context for reactive user state without flickering.
  */
 export default function Navbar() {
-  const router = useRouter();
   const { user, profile, isLoading, signOut } = useAuth();
 
   const handleLogout = async () => {
     const confirmed = window.confirm('Apakah Anda yakin ingin keluar?');
     if (!confirmed) return;
-
+    // signOut now does hard navigation internally
     await signOut();
-    router.push('/');
-    router.refresh();
   };
 
   return (
@@ -70,7 +66,7 @@ export default function Navbar() {
                 <span className="text-xs text-slate-600 max-w-[120px] truncate">
                   Halo,{' '}
                   <strong className="text-slate-900 font-semibold">
-                    {profile?.full_name || 'Pengguna'}
+                    {profile?.full_name || user.email?.split('@')[0] || 'Pengguna'}
                   </strong>
                 </span>
               </div>
