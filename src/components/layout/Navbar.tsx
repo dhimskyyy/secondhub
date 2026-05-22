@@ -12,6 +12,7 @@ import {
   LogIn,
   ShoppingBag,
 } from 'lucide-react';
+import Image from 'next/image';
 
 /**
  * Global navigation bar.
@@ -32,17 +33,24 @@ export default function Navbar() {
     <nav className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link
-          href="/"
-          className="flex items-center gap-2 group"
-        >
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <ShoppingBag size={16} className="text-white" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
-            SecondHub
-          </span>
-        </Link>
+<Link
+  href="/"
+  className="flex items-center gap-2 group"
+>
+  <div className="w-8 h-8 relative flex items-center justify-center group-hover:scale-105 transition-transform">
+    <Image
+      src="/icon.png"
+      alt="SecondHub Logo"
+      width={26}
+      height={26}
+      className="object-contain"
+      priority
+    />
+  </div>
+  <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+    SecondHub
+  </span>
+</Link>
 
         {/* Right Menu */}
         <div className="flex items-center gap-3">
