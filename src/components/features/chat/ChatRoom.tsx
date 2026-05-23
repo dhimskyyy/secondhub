@@ -3,6 +3,7 @@
 
 import { useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ArrowLeft, Send, ImagePlus, ImageOff, Check, CheckCheck } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -13,12 +14,46 @@ interface ChatRoomProps {
   room: ChatRoomType;
   messages: ChatMessage[];
   currentUserId: string;
+  currentUserAvatar?: string | null;
   inputText: string;
   uploading: boolean;
   onInputChange: (text: string) => void;
   onSendMessage: () => void;
   onSendImage: (file: File) => void;
   onBack: () => void;
+}
+
+function formatLastSeen(lastSeenAt: string | null): string {
+  if (!lastSeenAt) return 'Offline';
+  
+  const lastSeen = new Date(lastSeenAt);
+  const now = new Date();
+  const diffMs = now.getTime() - lastSeen.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  
+  if (diffSec < 45) {
+    return 'Online';
+  }
+  
+  if (diffSec < 60) {
+    return 'Terakhir online beberapa detik lalu';
+  }
+  
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `Terakhir online ${diffMin} menit lalu`;
+  }
+  
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) {
+    return `Terakhir online ${diffHr} jam lalu`;
+  }
+  
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) {
+    return 'Terakhir online kemarin';
+  }
+  return `Terakhir online ${diffDays} hari lalu`;
 }
 
 /**
@@ -28,6 +63,7 @@ export default function ChatRoomView({
   room,
   messages,
   currentUserId,
+  currentUserAvatar,
   inputText,
   uploading,
   onInputChange,
@@ -54,6 +90,7 @@ export default function ChatRoomView({
   };
 
   const productImage = room.products?.product_images?.[0]?.image_url;
+  const lastSeenText = formatLastSeen(room.opponent_last_seen);
 
   return (
     <div className="flex-1 flex flex-col bg-white">
@@ -73,12 +110,17 @@ export default function ChatRoomView({
         />
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-xs text-slate-900 truncate">{room.opponent_name}</h3>
-          <p className="text-[10px] text-emerald-500 font-medium">Online</p>
+          <p className={`text-[10px] font-medium transition-all duration-300 ${lastSeenText === 'Online' ? 'text-emerald-500 animate-pulse' : 'text-slate-400'}`}>
+            {lastSeenText}
+          </p>
         </div>
       </div>
 
       {/* Product Preview Strip */}
-      <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+      <Link
+        href={`/products/${room.product_id}`}
+        className="p-2.5 bg-slate-50 hover:bg-slate-100/80 border-b border-slate-100 flex items-center gap-3 cursor-pointer transition-colors"
+      >
         <div className="w-10 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative">
           {productImage ? (
             <Image
@@ -113,7 +155,7 @@ export default function ChatRoomView({
             )}
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40 space-y-2.5">
@@ -125,9 +167,18 @@ export default function ChatRoomView({
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUserId;
           return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex gap-2 items-end ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {!isMe && (
+                <Avatar
+                  src={room.opponent_avatar}
+                  alt={room.opponent_name}
+                  size="sm"
+                  fallbackInitial={room.opponent_name}
+                  className="w-6 h-6 text-[9px] mb-0.5 border border-slate-100 shadow-none flex-shrink-0"
+                />
+              )}
               <div
-                className={`max-w-[75%] p-2.5 rounded-2xl text-xs shadow-sm ${
+                className={`max-w-[70%] p-2.5 rounded-2xl text-xs shadow-sm ${
                   isMe
                     ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-md'
                     : 'bg-white text-slate-800 border border-slate-200 rounded-bl-md'
@@ -166,6 +217,15 @@ export default function ChatRoomView({
                   )}
                 </div>
               </div>
+              {isMe && (
+                <Avatar
+                  src={currentUserAvatar}
+                  alt="Saya"
+                  size="sm"
+                  fallbackInitial="Saya"
+                  className="w-6 h-6 text-[9px] mb-0.5 border border-slate-100 shadow-none flex-shrink-0"
+                />
+              )}
             </div>
           );
         })}

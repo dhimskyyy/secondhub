@@ -57,7 +57,7 @@ export function useChat() {
       ));
 
       const [profilesResult, unreadResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, avatar_url').in('id', targetIds),
+        supabase.from('profiles').select('id, full_name, avatar_url, last_seen_at').in('id', targetIds),
         // Get unread counts: messages NOT sent by me AND not read
         supabase
           .from('chat_messages')
@@ -84,6 +84,7 @@ export function useChat() {
           ...room,
           opponent_name: prof?.full_name || 'Pengguna SecondHub',
           opponent_avatar: prof?.avatar_url || null,
+          opponent_last_seen: prof?.last_seen_at || null,
           unread_count: unreadMap.get(room.id) || 0,
           last_message: null,
         };
@@ -256,7 +257,7 @@ export function useChat() {
 
         const { data: prof } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name, avatar_url, last_seen_at')
           .eq('id', targetId)
           .single();
 
@@ -264,6 +265,7 @@ export function useChat() {
           ...(roomData as ChatRoom),
           opponent_name: prof?.full_name || 'Pengguna SecondHub',
           opponent_avatar: prof?.avatar_url || null,
+          opponent_last_seen: prof?.last_seen_at || null,
           unread_count: 0,
           last_message: null,
         });
@@ -272,6 +274,31 @@ export function useChat() {
       console.error('[useChat] openRoom error:', err);
     }
   }, [fetchRooms, supabase, user]);
+
+  // Delete chat room and all messages inside it
+  const deleteRoom = useCallback(async (roomId: string) => {
+    try {
+      // Delete messages first to satisfy constraint
+      await supabase.from('chat_messages').delete().eq('room_id', roomId);
+      
+      // Delete room
+      const { error } = await supabase.from('chat_rooms').delete().eq('id', roomId);
+      if (error) throw error;
+
+      // If the active room is deleted, reset it
+      setActiveRoom(prev => prev?.id === roomId ? null : prev);
+
+      // Update rooms list locally
+      setRooms(prev => {
+        const updated = prev.filter(r => r.id !== roomId);
+        updateUnreadTotal(updated);
+        return updated;
+      });
+    } catch (err) {
+      console.error('[useChat] deleteRoom error:', err);
+      alert('Gagal menghapus obrolan.');
+    }
+  }, [supabase, updateUnreadTotal]);
 
   // Listen for custom DOM events from ChatButton / Purchases page
   useEffect(() => {
@@ -284,17 +311,17 @@ export function useChat() {
     return () => window.removeEventListener('open-chat-room', handler);
   }, [openRoom]);
 
-  // Periodically refresh unread counts when chat is closed
+  // Periodically refresh rooms list (for unread counts & online status)
   useEffect(() => {
-    if (!user || isOpen) return;
+    if (!user) return;
 
-    // Initial fetch for badge count
+    // Initial fetch
     fetchRooms();
 
-    const interval = setInterval(fetchRooms, 30000); // every 30s
+    const interval = setInterval(fetchRooms, 15000); // every 15s to keep it fresh
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isOpen]);
+  }, [user]);
 
   return {
     rooms,
@@ -311,5 +338,6 @@ export function useChat() {
     sendMessage,
     sendImage,
     markMessagesAsRead,
+    deleteRoom,
   };
 }

@@ -31,6 +31,8 @@ export interface ChatRoom {
   opponent_name: string;
   /** Resolved opponent avatar URL */
   opponent_avatar: string | null;
+  /** Opponent last seen timestamp */
+  opponent_last_seen: string | null;
   /** Unread message count for current user */
   unread_count: number;
   /** Last message preview */

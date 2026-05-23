@@ -95,6 +95,30 @@ export default function AuthProvider({
     }, 100);
   }, [supabase]);
 
+  // Heartbeat to update last_seen_at of the user
+  useEffect(() => {
+    if (!user) return;
+
+    const updateLastSeen = async () => {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('id', user.id);
+      } catch (err) {
+        console.warn('[AuthProvider] Heartbeat update failed:', err);
+      }
+    };
+
+    // Update immediately on mount or user shift
+    updateLastSeen();
+
+    // Trigger every 20 seconds
+    const interval = setInterval(updateLastSeen, 20000);
+
+    return () => clearInterval(interval);
+  }, [user, supabase]);
+
   useEffect(() => {
     // Safety timeout: if onAuthStateChange never fires, unlock loading after 2 seconds
     const timeout = setTimeout(() => {

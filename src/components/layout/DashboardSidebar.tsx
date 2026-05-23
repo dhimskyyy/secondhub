@@ -3,7 +3,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Package, ShoppingCart, UserCircle, Plus } from 'lucide-react';
+import { Package, ShoppingCart, UserCircle, Plus, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { href: '/dashboard/listings', label: 'Iklan Saya', icon: Package },
@@ -17,6 +18,7 @@ const navItems = [
  */
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const { signOut } = useAuth();
 
   return (
     <aside className="w-full lg:w-64 flex-shrink-0">
@@ -40,6 +42,20 @@ export default function DashboardSidebar() {
               </Link>
             );
           })}
+
+          {/* Logout Button */}
+          <button
+            onClick={async () => {
+              const confirmed = window.confirm('Apakah Anda yakin ingin keluar?');
+              if (confirmed) {
+                await signOut();
+              }
+            }}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer text-left"
+          >
+            <LogOut size={18} className="text-red-500" />
+            Keluar
+          </button>
         </nav>
 
         {/* CTA */}

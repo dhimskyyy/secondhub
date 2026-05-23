@@ -16,7 +16,7 @@ import ChatWelcome from './ChatWelcome';
  * Layer 3 (Active Room): Full messaging with read receipts
  */
 export default function FloatingChat() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const {
     rooms,
     activeRoom,
@@ -32,6 +32,7 @@ export default function FloatingChat() {
     sendMessage,
     sendImage,
     markMessagesAsRead,
+    deleteRoom,
   } = useChat();
 
   // Fetch rooms when widget opens
@@ -81,15 +82,17 @@ export default function FloatingChat() {
                 setIsOpen(false);
                 setActiveRoom(null);
               }}
+              onDeleteRoom={deleteRoom}
             />
           </div>
 
           {/* Right: Chat Room or Welcome */}
           {activeRoom ? (
             <ChatRoomView
-              room={activeRoom}
+              room={rooms.find(r => r.id === activeRoom.id) || activeRoom}
               messages={messages}
               currentUserId={user.id}
+              currentUserAvatar={profile?.avatar_url}
               inputText={inputText}
               uploading={uploading}
               onInputChange={setInputText}
@@ -105,6 +108,7 @@ export default function FloatingChat() {
                   activeRoomId={null}
                   onSelectRoom={handleSelectRoom}
                   onMinimize={() => setIsOpen(false)}
+                  onDeleteRoom={deleteRoom}
                 />
               </div>
               <div className="hidden sm:flex flex-1">

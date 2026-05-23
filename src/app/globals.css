@@ -75,3 +75,16 @@ body {
   background: #dbeafe;
   color: #1e40af;
 }
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
