@@ -114,13 +114,6 @@ export default function ProductCard({
           <h3 className="font-semibold text-slate-700 text-xs sm:text-sm line-clamp-1 group-hover:text-blue-600 transition-colors leading-tight">
             {title}
           </h3>
-
-          {/* Rating (Third Row of Text) */}
-          <div className="flex items-center gap-0.5 text-[11px] sm:text-xs text-amber-500 font-bold mb-1">
-            <Star size={12} fill="currentColor" className="text-amber-500" />
-            <span className="text-slate-800 ml-0.5">{rating}</span>
-            <span className="text-slate-400 font-normal">({reviews})</span>
-          </div>
         </div>
       </div>
 
@@ -128,7 +121,7 @@ export default function ProductCard({
       <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 pt-2.5 mt-2 border-t border-slate-100/60">
         <span className="inline-flex items-center gap-0.5 max-w-[125px] sm:max-w-[140px] truncate text-slate-400 font-medium">
           <MapPin size={10} className="text-slate-400 flex-shrink-0" />
-          {city || 'Indonesia'}, {formattedDate}
+          {city || 'Indonesia'}
         </span>
         <Badge variant={conditionVariant[condition]} className="text-[9px] px-1.5 py-0.5 font-bold flex-shrink-0 rounded-md">
           {condition}

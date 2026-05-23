@@ -7,6 +7,8 @@ import Image from 'next/image';
 import { ShoppingCart, MessageCircle, ImageOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSupabase } from '@/hooks/useSupabase';
+import Badge from '@/components/ui/Badge';
+import StatusBadge from '@/components/ui/StatusBadge';
 import Skeleton from '@/components/ui/Skeleton';
 import type { ChatRoom } from '@/types/chat';
 
@@ -28,7 +30,7 @@ export default function PurchasesPage() {
         .from('chat_rooms')
         .select(`
           id, product_id, buyer_id, seller_id, created_at,
-          products (id, title, price, status, product_images(image_url))
+          products (id, title, price, status, condition, product_images(image_url))
         `)
         .eq('buyer_id', userId)
         .order('created_at', { ascending: false });
@@ -86,12 +88,6 @@ export default function PurchasesPage() {
     fetchPurchases(user.id);
   }, [authLoading, user, fetchPurchases]);
 
-  const openChatRoom = (roomId: string) => {
-    window.dispatchEvent(
-      new CustomEvent('open-chat-room', { detail: { roomId } })
-    );
-  };
-
   if (authLoading || loading) {
     return (
       <div className="space-y-4">
@@ -140,45 +136,75 @@ export default function PurchasesPage() {
             return (
               <div
                 key={room.id}
-                className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => openChatRoom(room.id)}
+                className="bg-white p-4 rounded-[20px] border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-shadow duration-300 cursor-pointer"
+                onClick={() => {
+                  if (room.product_id) {
+                    router.push(`/products/${room.product_id}`);
+                  }
+                }}
               >
-                <div className="w-14 h-14 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex-shrink-0 relative">
-                  {productImage ? (
-                    <Image
-                      src={productImage}
-                      alt={room.products?.title || ''}
-                      fill
-                      sizes="56px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageOff size={16} className="text-slate-300" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-800 truncate">
-                    {room.products?.title || 'Produk'}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Penjual: <span className="text-slate-600">{room.opponent_name}</span>
-                  </p>
-                  <p className="text-xs font-bold text-blue-600 mt-1">
-                    {room.products?.price
-                      ? new Intl.NumberFormat('id-ID', {
-                          style: 'currency',
-                          currency: 'IDR',
-                          maximumFractionDigits: 0,
-                        }).format(room.products.price)
-                      : '-'}
-                  </p>
-                </div>
-                <div className="flex-shrink-0">
-                  <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <MessageCircle size={16} className="text-blue-600" />
+                <div className="flex items-center gap-4 flex-1 min-w-0 w-full">
+                  {/* Product Image */}
+                  <div className="w-20 h-20 bg-slate-50 rounded-2xl border border-slate-200/80 overflow-hidden flex-shrink-0 relative">
+                    {productImage ? (
+                      <Image
+                        src={productImage}
+                        alt={room.products?.title || ''}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageOff size={20} className="text-slate-300" />
+                      </div>
+                    )}
                   </div>
+
+                  {/* Title & Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap text-sm">
+                      <span className="font-extrabold text-slate-950 text-base sm:text-lg">
+                        {room.products?.price
+                          ? new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              maximumFractionDigits: 0,
+                            }).format(room.products.price)
+                          : '-'}
+                      </span>
+                      <span className="text-slate-300 font-normal">|</span>
+                      {room.products?.status && (
+                        <StatusBadge status={room.products.status as any} />
+                      )}
+                      {room.products?.condition && (
+                        <Badge variant="muted" className="text-[10px] px-2 py-0.5 font-bold uppercase rounded-md">
+                          {room.products.condition}
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="text-slate-500 text-xs sm:text-sm font-medium line-clamp-1">
+                      {room.products?.title || 'Produk'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Penjual: <span className="text-slate-600 font-medium">{room.opponent_name}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lihat Detail Action Button */}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (room.product_id) {
+                        router.push(`/products/${room.product_id}`);
+                      }
+                    }}
+                    className="px-4 py-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+                  >
+                    Lihat Detail
+                  </button>
                 </div>
               </div>
             );

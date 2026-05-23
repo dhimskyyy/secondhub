@@ -56,7 +56,7 @@ export function useChat() {
         (data as ChatRoom[]).map((room) => room.buyer_id === user.id ? room.seller_id : room.buyer_id)
       ));
 
-      const [profilesResult, unreadResult] = await Promise.all([
+      const [profilesResult, unreadResult, messagesResult] = await Promise.all([
         supabase.from('profiles').select('id, full_name, avatar_url, last_seen_at').in('id', targetIds),
         // Get unread counts: messages NOT sent by me AND not read
         supabase
@@ -64,6 +64,11 @@ export function useChat() {
           .select('room_id')
           .neq('sender_id', user.id)
           .eq('is_read', false)
+          .in('room_id', data.map((r: any) => r.id)),
+        // Get unique messages to verify room activity
+        supabase
+          .from('chat_messages')
+          .select('room_id')
           .in('room_id', data.map((r: any) => r.id)),
       ]);
 
@@ -77,25 +82,34 @@ export function useChat() {
         unreadMap.set(msg.room_id, (unreadMap.get(msg.room_id) || 0) + 1);
       });
 
-      const formatted: ChatRoom[] = (data as ChatRoom[]).map((room) => {
-        const targetId = room.buyer_id === user.id ? room.seller_id : room.buyer_id;
-        const prof = profileMap.get(targetId);
-        return {
-          ...room,
-          opponent_name: prof?.full_name || 'Pengguna SecondHub',
-          opponent_avatar: prof?.avatar_url || null,
-          opponent_last_seen: prof?.last_seen_at || null,
-          unread_count: unreadMap.get(room.id) || 0,
-          last_message: null,
-        };
+      // Count total messages per room
+      const totalMessagesMap = new Map<string, number>();
+      (messagesResult.data || []).forEach((msg: any) => {
+        totalMessagesMap.set(msg.room_id, (totalMessagesMap.get(msg.room_id) || 0) + 1);
       });
+
+      const formatted: ChatRoom[] = (data as ChatRoom[])
+        .map((room) => {
+          const targetId = room.buyer_id === user.id ? room.seller_id : room.buyer_id;
+          const prof = profileMap.get(targetId);
+          return {
+            ...room,
+            opponent_name: prof?.full_name || 'Pengguna SecondHub',
+            opponent_avatar: prof?.avatar_url || null,
+            opponent_last_seen: prof?.last_seen_at || null,
+            unread_count: unreadMap.get(room.id) || 0,
+            last_message: null,
+            message_count: totalMessagesMap.get(room.id) || 0,
+          } as any;
+        })
+        .filter((room: any) => (room.message_count || 0) > 0 || activeRoom?.id === room.id);
 
       setRooms(formatted);
       updateUnreadTotal(formatted);
     } catch (err) {
       console.error('[useChat] fetchRooms error:', err);
     }
-  }, [user, supabase, updateUnreadTotal]);
+  }, [user, supabase, updateUnreadTotal, activeRoom?.id]);
 
   // Mark messages as read when entering a room
   const markMessagesAsRead = useCallback(async (roomId: string) => {
@@ -275,30 +289,23 @@ export function useChat() {
     }
   }, [fetchRooms, supabase, user]);
 
-  // Delete chat room and all messages inside it
+  // Delete chat room (clears messages in the database, keeps room record)
   const deleteRoom = useCallback(async (roomId: string) => {
     try {
-      // Delete messages first to satisfy constraint
-      await supabase.from('chat_messages').delete().eq('room_id', roomId);
-      
-      // Delete room
-      const { error } = await supabase.from('chat_rooms').delete().eq('id', roomId);
+      // Delete messages
+      const { error } = await supabase.from('chat_messages').delete().eq('room_id', roomId);
       if (error) throw error;
 
       // If the active room is deleted, reset it
       setActiveRoom(prev => prev?.id === roomId ? null : prev);
 
-      // Update rooms list locally
-      setRooms(prev => {
-        const updated = prev.filter(r => r.id !== roomId);
-        updateUnreadTotal(updated);
-        return updated;
-      });
+      // Refresh list to filter out rooms with 0 messages
+      await fetchRooms();
     } catch (err) {
       console.error('[useChat] deleteRoom error:', err);
       alert('Gagal menghapus obrolan.');
     }
-  }, [supabase, updateUnreadTotal]);
+  }, [supabase, fetchRooms]);
 
   // Listen for custom DOM events from ChatButton / Purchases page
   useEffect(() => {

@@ -17,6 +17,7 @@ export interface ChatRoomProduct {
   title: string;
   price: number;
   status: string;
+  condition: string;
   product_images: ProductImage[];
 }
 

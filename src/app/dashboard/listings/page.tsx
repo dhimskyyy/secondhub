@@ -31,7 +31,7 @@ export default function ListingsPage() {
   const [error, setError] = useState('');
   
   // Tabs filtering
-  const [activeTab, setActiveTab] = useState<'All' | 'Active' | 'Sold' | 'Pending'>('All');
+  const [activeTab, setActiveTab] = useState<'All' | 'Active' | 'Sold'>('All');
 
   // Modal editing state
   const [editingProduct, setEditingProduct] = useState<ExtendedProduct | null>(null);
@@ -201,7 +201,6 @@ export default function ListingsPage() {
     if (activeTab === 'All') return true;
     if (activeTab === 'Active') return product.status === 'Available';
     if (activeTab === 'Sold') return product.status === 'Sold';
-    if (activeTab === 'Pending') return (product.status as string) === 'Pending';
     return true;
   });
 
@@ -224,14 +223,13 @@ export default function ListingsPage() {
 
       {/* Tabs Filter Bar */}
       <div className="flex gap-6 border-b border-slate-200 mb-6 text-sm">
-        {(['All', 'Active', 'Sold', 'Pending'] as const).map((tab) => {
+        {(['All', 'Active', 'Sold'] as const).map((tab) => {
           const isActive = activeTab === tab;
           
           let count = 0;
           if (tab === 'All') count = products.length;
           else if (tab === 'Active') count = products.filter(p => p.status === 'Available').length;
           else if (tab === 'Sold') count = products.filter(p => p.status === 'Sold').length;
-          else count = products.filter(p => (p.status as string) === 'Pending').length;
 
           return (
             <button

@@ -122,26 +122,25 @@ export default async function ProductDetailPage({
               <span className="text-[11px] bg-slate-50 text-slate-400 px-2 py-1 rounded-lg border border-slate-100 flex items-center gap-1">
                 <Calendar size={10} />
                 {new Date(product.created_at).toLocaleDateString('id-ID', {
-                  year: 'numeric',
+                  day: 'numeric',
                   month: 'short',
+                  year: 'numeric',
                 })}
               </span>
             </div>
 
             {/* Actions */}
-            {!isSold && (
-              <div className="space-y-2.5 pt-2">
-                <ChatButton productId={product.id} sellerId={product.seller_id} />
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md hover:shadow-lg hover:shadow-emerald-200/50"
-                >
-                  💬 Hubungi via WhatsApp
-                </a>
-              </div>
-            )}
+            <div className="space-y-2.5 pt-2">
+              <ChatButton productId={product.id} sellerId={product.seller_id} />
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md hover:shadow-lg hover:shadow-emerald-200/50"
+              >
+                💬 Hubungi via WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       </div>
